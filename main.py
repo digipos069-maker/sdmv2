@@ -169,6 +169,15 @@ class DownloaderApp(QMainWindow):
         # (Left: URL Table | Right: Download Activity)
         row4_layout = QHBoxLayout()
         
+        # Left Table Container
+        left_container = QWidget()
+        left_layout = QVBoxLayout(left_container)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.url_queue_label = QLabel("URL Queue")
+        self.url_queue_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        left_layout.addWidget(self.url_queue_label)
+
         # Left Table: URL Table (ID, URL)
         self.url_table = QTableWidget()
         self.url_table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -180,10 +189,23 @@ class DownloaderApp(QMainWindow):
         self.url_table.setRowCount(1)
         self.url_table.setItem(0, 0, QTableWidgetItem("1"))
         self.url_table.setItem(0, 1, QTableWidgetItem("https://www.netshort.com/full-episodes/the-heiress-returns"))
+        left_layout.addWidget(self.url_table)
+
+        # Right Table Container
+        right_container = QWidget()
+        right_layout = QVBoxLayout(right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.activity_label = QLabel("Activity Table")
+        self.activity_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        right_layout.addWidget(self.activity_label)
 
         # Right Table: Download Activity
         # (ID, Title, URL, Status, Type, Platform, Size)
         self.dl_table = QTableWidget()
+        self.dl_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.dl_table.customContextMenuRequested.connect(self.show_dl_table_context_menu)
+        self.dl_table.setSelectionBehavior(QTableWidget.SelectRows) # Select full rows
         self.dl_table.setColumnCount(7)
         self.dl_table.setHorizontalHeaderLabels(["ID", "Title", "URL", "Status", "Type", "Platform", "Size"])
         self.dl_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch) # Distribute evenly
@@ -196,16 +218,47 @@ class DownloaderApp(QMainWindow):
         self.dl_table.setItem(0, 4, QTableWidgetItem("Video"))
         self.dl_table.setItem(0, 5, QTableWidgetItem("YouTube"))
         self.dl_table.setItem(0, 6, QTableWidgetItem("45 MB"))
+        right_layout.addWidget(self.dl_table)
 
         # Splitter to allow resizing between tables
         splitter = QSplitter(Qt.Horizontal)
-        splitter.addWidget(self.url_table)
-        splitter.addWidget(self.dl_table)
+        splitter.addWidget(left_container)
+        splitter.addWidget(right_container)
         splitter.setStretchFactor(0, 1) # Left table smaller
         splitter.setStretchFactor(1, 3) # Right table larger
 
         row4_layout.addWidget(splitter)
         layout.addLayout(row4_layout, stretch=1) # Give this row vertical expansion room
+
+    def show_dl_table_context_menu(self, position):
+        menu = QMenu()
+        select_all_action = QAction("Select All", self)
+        select_all_action.triggered.connect(self.select_all_dl_items)
+        menu.addAction(select_all_action)
+        
+        download_action = QAction("Download Selected", self)
+        download_action.triggered.connect(self.download_selected_items)
+        menu.addAction(download_action)
+        
+        menu.exec_(self.dl_table.viewport().mapToGlobal(position))
+
+    def select_all_dl_items(self):
+        self.dl_table.selectAll()
+
+    def download_selected_items(self):
+        selected_rows = set()
+        for item in self.dl_table.selectedItems():
+            selected_rows.add(item.row())
+            
+        if not selected_rows:
+            self.status_label.setText("No items selected for download.")
+            return
+
+        self.status_label.setText(f"Starting download for {len(selected_rows)} items...")
+        # Placeholder for actual download logic
+        for row in selected_rows:
+            # Update status column (index 3) to "Starting..."
+            self.dl_table.setItem(row, 3, QTableWidgetItem("Starting..."))
 
         # --- Row 5: Options (4 sub-rows/sections) ---
         # (Download Path, Download Option, System Setting)
