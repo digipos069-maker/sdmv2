@@ -42,9 +42,11 @@ class DownloadWorker(QThread):
                 os.makedirs(self.download_path)
 
             # 3. Download
+            print(f"[DEBUG] Downloading from: {real_url}")
             self.download_file(real_url, filepath)
 
         except Exception as e:
+            print(f"[ERROR] Download failed: {str(e)}")
             self.error.emit(self.row_id, str(e))
 
     def download_file(self, url, filepath):
@@ -54,6 +56,8 @@ class DownloadWorker(QThread):
             
             with urllib.request.urlopen(req) as response:
                 content_type = response.getheader('Content-Type')
+                print(f"[DEBUG] Content-Type: {content_type}")
+                
                 if content_type and 'text/html' in content_type:
                     raise Exception(f"Invalid content type: {content_type}. The URL returned an HTML page instead of a video.")
 
