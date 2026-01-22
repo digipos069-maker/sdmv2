@@ -1,4 +1,5 @@
 from platforms.netshort import NetShortPlatform
+from platforms.dramabox import DramaboxPlatform
 
 class PlatformManager:
     def __init__(self):
@@ -8,6 +9,7 @@ class PlatformManager:
     def register_platforms(self):
         # Register all available platforms here
         self.platforms.append(NetShortPlatform())
+        self.platforms.append(DramaboxPlatform())
 
     def get_platform_for_url(self, url):
         for platform in self.platforms:
