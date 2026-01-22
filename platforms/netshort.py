@@ -91,15 +91,29 @@ class NetShortPlatform(BasePlatform):
             with urllib.request.urlopen(req) as response:
                 html = response.read().decode('utf-8')
                 
-            # Naive regex for mp4/m3u8
-            # This is highly dependent on the site structure
-            video_match = re.search(r'src=["\']([^"\']+\.(?:mp4|m3u8))["\']', html)
+            # 1. Try standard/escaped absolute URLs (handling https:\/\/ style)
+            # Matches http or https, followed by :// or :\/\/ or :\\/\\/, then content, ending in mp4/m3u8
+            video_match = re.search(r'(https?(?::|%3A)(?:/|%2F|\\/){2}[^"\'\s<>]+?\.(?:mp4|m3u8))', html, re.IGNORECASE)
+            
+            if not video_match:
+                # 2. Try relative URLs inside quotes
+                video_match = re.search(r'["\'](/[^"\']+\.(?:mp4|m3u8))["\']', html, re.IGNORECASE)
+
             if video_match:
                 found_url = video_match.group(1)
+                # Unescape slashes if found
+                found_url = found_url.replace(r'\/', '/')
+                
+                # Handle relative URL
+                if found_url.startswith('/'):
+                    from urllib.parse import urljoin
+                    found_url = urljoin(episode_url, found_url)
+                    
                 print(f"[DEBUG] Found video URL: {found_url}")
                 return found_url
             else:
-                print(f"[DEBUG] No video pattern matched in HTML.")
+                print(f"[ERROR] No video pattern matched in HTML for {episode_url}")
+                return None
         except Exception as e:
             print(f"[ERROR] resolve_video_url failed: {e}")
             pass

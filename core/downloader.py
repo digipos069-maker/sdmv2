@@ -59,7 +59,7 @@ class DownloadWorker(QThread):
                 print(f"[DEBUG] Content-Type: {content_type}")
                 
                 if content_type and 'text/html' in content_type:
-                    raise Exception(f"Invalid content type: {content_type}. The URL returned an HTML page instead of a video.")
+                    raise Exception("Download failed: URL returned an HTML page instead of video. The video might be protected, require login, or the URL is invalid.")
 
                 content_length = response.getheader('Content-Length')
                 total_size = int(content_length.strip()) if content_length else 0
