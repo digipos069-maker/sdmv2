@@ -98,4 +98,4 @@ class NetShortPlatform(BasePlatform):
         except:
             pass
             
-        return episode_url # Fallback
+        return None # Failed to resolve

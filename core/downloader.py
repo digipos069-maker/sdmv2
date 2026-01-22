@@ -49,8 +49,16 @@ class DownloadWorker(QThread):
 
     def download_file(self, url, filepath):
         try:
-            with urllib.request.urlopen(url) as response:
-                total_size = int(response.getheader('Content-Length').strip())
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+            req = urllib.request.Request(url, headers=headers)
+            
+            with urllib.request.urlopen(req) as response:
+                content_type = response.getheader('Content-Type')
+                if content_type and 'text/html' in content_type:
+                    raise Exception(f"Invalid content type: {content_type}. The URL returned an HTML page instead of a video.")
+
+                content_length = response.getheader('Content-Length')
+                total_size = int(content_length.strip()) if content_length else 0
                 downloaded = 0
                 block_size = 8192
                 

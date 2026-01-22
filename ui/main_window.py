@@ -225,9 +225,11 @@ class DownloaderApp(QMainWindow):
         row5_group = QGroupBox("Configuration")
         row5_layout = QVBoxLayout()
 
+        # 1. Download Paths
         path_layout = QHBoxLayout()
         path_layout.addWidget(QLabel("Video Path:"))
-        path_layout.addWidget(QLineEdit("C:/Downloads/Videos"))
+        self.video_path_input = QLineEdit("C:/Downloads/Videos")
+        path_layout.addWidget(self.video_path_input)
         path_layout.addWidget(QLabel("Photo Path:"))
         path_layout.addWidget(QLineEdit("C:/Downloads/Photos"))
         row5_layout.addLayout(path_layout)
@@ -289,10 +291,48 @@ class DownloaderApp(QMainWindow):
         download_action.triggered.connect(self.download_selected_items)
         menu.addAction(download_action)
         
+        menu.addSeparator()
+        
+        delete_action = QAction("Delete", self)
+        delete_action.triggered.connect(self.delete_selected_items)
+        menu.addAction(delete_action)
+        
+        open_folder_action = QAction("Open Folder", self)
+        open_folder_action.triggered.connect(self.open_selected_folder)
+        menu.addAction(open_folder_action)
+        
         menu.exec_(self.dl_table.viewport().mapToGlobal(position))
 
     def select_all_dl_items(self):
         self.dl_table.selectAll()
+        
+    def delete_selected_items(self):
+        # Iterate in reverse order to avoid index shifting issues when removing
+        rows_to_remove = sorted([item.row() for item in self.dl_table.selectedItems()], reverse=True)
+        # Use set to process each row only once (since multiple items can be selected in same row)
+        unique_rows = []
+        seen = set()
+        for r in rows_to_remove:
+            if r not in seen:
+                unique_rows.append(r)
+                seen.add(r)
+        
+        for row in unique_rows:
+            # Cancel active download if any
+            if row in self.active_downloads:
+                self.active_downloads[row].cancel()
+                del self.active_downloads[row]
+            
+            # Remove from table
+            self.dl_table.removeRow(row)
+
+    def open_selected_folder(self):
+        # Determine path (from input for now, ideally per-item if stored)
+        path = self.video_path_input.text()
+        if os.path.exists(path):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+        else:
+            self.status_label.setText(f"Folder does not exist: {path}")
 
     def download_all_items(self):
         all_rows = set(range(self.dl_table.rowCount()))
@@ -312,18 +352,24 @@ class DownloaderApp(QMainWindow):
     def start_download_for_rows(self, rows):
         self.status_label.setText(f"Starting download for {len(rows)} items...")
         
-        # Determine download path (naive get from UI or default)
-        # In a real app, bind this to the UI field.
-        download_path = "C:/Downloads/Videos" 
+        download_path = self.video_path_input.text()
         
         for row in rows:
             if row in self.active_downloads:
                 continue # Already downloading
                 
             # Get data from table
-            title = self.dl_table.item(row, 1).text()
-            url = self.dl_table.item(row, 2).text()
-            platform = self.dl_table.item(row, 5).text()
+            title_item = self.dl_table.item(row, 1)
+            url_item = self.dl_table.item(row, 2)
+            platform_item = self.dl_table.item(row, 5)
+            
+            # Safety check if items are valid
+            if not title_item or not url_item:
+                continue
+
+            title = title_item.text()
+            url = url_item.text()
+            platform = platform_item.text() if platform_item else "Unknown"
             
             video_data = {
                 "title": title,
