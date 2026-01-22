@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QLineEdit, 
                              QTableWidget, QTableWidgetItem, QTabWidget, 
                              QGroupBox, QHeaderView, QSplitter, QMenu, QAction,
-                             QApplication)
+                             QApplication, QMessageBox)
 from PyQt5.QtCore import Qt, QTimer, QUrl
 from PyQt5.QtGui import QPixmap, QDesktopServices
 from core.manager import PlatformManager
@@ -279,7 +279,67 @@ class DownloaderApp(QMainWindow):
         scrap_action = QAction("Scrap", self)
         scrap_action.triggered.connect(self.scrap_selected_url)
         menu.addAction(scrap_action)
+        
+        menu.addSeparator()
+        
+        paste_action = QAction("Paste URL", self)
+        paste_action.triggered.connect(self.paste_url_from_clipboard)
+        menu.addAction(paste_action)
+        
+        paste_all_action = QAction("Paste All URLs", self)
+        paste_all_action.triggered.connect(self.paste_all_urls_from_clipboard)
+        menu.addAction(paste_all_action)
+        
         menu.exec_(self.url_table.viewport().mapToGlobal(position))
+
+    def paste_url_from_clipboard(self):
+        clipboard = QApplication.clipboard()
+        text = clipboard.text()
+        if text:
+            # Take the first line if multiple
+            url = text.split('\n')[0].strip()
+            self.process_pasted_urls([url])
+
+    def paste_all_urls_from_clipboard(self):
+        clipboard = QApplication.clipboard()
+        text = clipboard.text()
+        if text:
+            urls = [line.strip() for line in text.split('\n') if line.strip()]
+            self.process_pasted_urls(urls)
+
+    def process_pasted_urls(self, urls):
+        invalid_urls = []
+        added_count = 0
+        
+        for url in urls:
+            platform = self.platform_manager.get_platform_for_url(url)
+            if platform:
+                self.add_url_to_table(url)
+                added_count += 1
+            else:
+                invalid_urls.append(url)
+        
+        if invalid_urls:
+            msg = "The following URLs are not supported:\n\n"
+            msg += "\n".join(invalid_urls[:10])
+            if len(invalid_urls) > 10:
+                msg += f"\n...and {len(invalid_urls) - 10} more."
+            QMessageBox.warning(self, "Unsupported URLs", msg)
+            
+        if added_count > 0:
+            self.status_label.setText(f"Added {added_count} URLs to queue.")
+
+    def add_url_to_table(self, url):
+        # Check if already exists to avoid duplicates (optional but good UX)
+        for row in range(self.url_table.rowCount()):
+            item = self.url_table.item(row, 1)
+            if item and item.text() == url:
+                return
+
+        row = self.url_table.rowCount()
+        self.url_table.insertRow(row)
+        self.url_table.setItem(row, 0, QTableWidgetItem(str(row + 1)))
+        self.url_table.setItem(row, 1, QTableWidgetItem(url))
 
     def show_dl_table_context_menu(self, position):
         menu = QMenu()
