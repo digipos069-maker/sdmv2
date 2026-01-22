@@ -86,6 +86,13 @@ class DramaboxPlatform(BasePlatform):
             with urllib.request.urlopen(req) as response:
                 html = response.read().decode('utf-8')
             
+            # Save debug HTML
+            try:
+                with open("debug_dramabox_source.html", "w", encoding="utf-8") as f:
+                    f.write(html)
+            except:
+                pass
+
             # Search for m3u8
             # Look for common patterns: .m3u8 inside quotes
             # Handle escaped slashes if JSON
