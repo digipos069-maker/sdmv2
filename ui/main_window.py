@@ -1,12 +1,14 @@
 import datetime
+import os
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QLineEdit, 
                              QTableWidget, QTableWidgetItem, QTabWidget, 
                              QGroupBox, QHeaderView, QSplitter, QMenu, QAction,
                              QApplication)
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt, QTimer, QUrl
+from PyQt5.QtGui import QPixmap, QDesktopServices
 from core.manager import PlatformManager
+from core.downloader import DownloadWorker
 
 # --- Constants ---
 # User preferred color
@@ -21,6 +23,7 @@ class DownloaderApp(QMainWindow):
         self.resize(1200, 800)
         
         self.platform_manager = PlatformManager()
+        self.active_downloads = {} # row_id: DownloadWorker
         
         # Apply Global Theme (Light Mode with Custom Accent)
         self.apply_theme()
@@ -255,6 +258,7 @@ class DownloaderApp(QMainWindow):
         row6_layout.addStretch()
         
         self.btn_download_all = QPushButton("Download All")
+        self.btn_download_all.clicked.connect(self.download_all_items)
         self.btn_cancel = QPushButton("Cancel")
         
         row6_layout.addWidget(self.btn_download_all)
@@ -290,6 +294,10 @@ class DownloaderApp(QMainWindow):
     def select_all_dl_items(self):
         self.dl_table.selectAll()
 
+    def download_all_items(self):
+        all_rows = set(range(self.dl_table.rowCount()))
+        self.start_download_for_rows(all_rows)
+
     def download_selected_items(self):
         selected_rows = set()
         for item in self.dl_table.selectedItems():
@@ -299,9 +307,56 @@ class DownloaderApp(QMainWindow):
             self.status_label.setText("No items selected for download.")
             return
 
-        self.status_label.setText(f"Starting download for {len(selected_rows)} items...")
-        for row in selected_rows:
+        self.start_download_for_rows(selected_rows)
+
+    def start_download_for_rows(self, rows):
+        self.status_label.setText(f"Starting download for {len(rows)} items...")
+        
+        # Determine download path (naive get from UI or default)
+        # In a real app, bind this to the UI field.
+        download_path = "C:/Downloads/Videos" 
+        
+        for row in rows:
+            if row in self.active_downloads:
+                continue # Already downloading
+                
+            # Get data from table
+            title = self.dl_table.item(row, 1).text()
+            url = self.dl_table.item(row, 2).text()
+            platform = self.dl_table.item(row, 5).text()
+            
+            video_data = {
+                "title": title,
+                "url": url,
+                "platform": platform
+            }
+            
+            # Update Status
             self.dl_table.setItem(row, 3, QTableWidgetItem("Starting..."))
+            
+            # Create Worker
+            worker = DownloadWorker(row, video_data, download_path)
+            worker.progress.connect(self.on_download_progress)
+            worker.finished.connect(self.on_download_finished)
+            worker.error.connect(self.on_download_error)
+            
+            self.active_downloads[row] = worker
+            worker.start()
+
+    def on_download_progress(self, row, percent, speed):
+        self.dl_table.setItem(row, 3, QTableWidgetItem(f"Downloading {percent}%"))
+        
+    def on_download_finished(self, row, status):
+        self.dl_table.setItem(row, 3, QTableWidgetItem(status))
+        if row in self.active_downloads:
+            del self.active_downloads[row]
+            
+    def on_download_error(self, row, error_msg):
+        self.dl_table.setItem(row, 3, QTableWidgetItem("Error"))
+        # Optional: Show error in tooltip or log
+        self.status_label.setText(f"Error on row {row}: {error_msg}")
+        if row in self.active_downloads:
+            del self.active_downloads[row]
 
     def scrap_selected_url(self):
         current_row = self.url_table.currentRow()

@@ -79,3 +79,23 @@ class NetShortPlatform(BasePlatform):
             current_url = f"{base_url}/page/{page_num}"
             
         return all_videos
+
+    def resolve_video_url(self, episode_url):
+        # In a real scenario, this would request the episode_url, 
+        # find the <video> tag or m3u8 link, and return that.
+        # For this prototype, we'll try to find a video source or just return the page url
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+            req = urllib.request.Request(episode_url, headers=headers)
+            with urllib.request.urlopen(req) as response:
+                html = response.read().decode('utf-8')
+                
+            # Naive regex for mp4/m3u8
+            # This is highly dependent on the site structure
+            video_match = re.search(r'src=["\']([^"\']+\.(?:mp4|m3u8))["\']', html)
+            if video_match:
+                return video_match.group(1)
+        except:
+            pass
+            
+        return episode_url # Fallback
